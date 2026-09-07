@@ -23,15 +23,31 @@ export default function PortalLogin() {
     setLoading(true);
     setErrorMsg('');
     
-    // ── ADMIN BYPASS (funciona en dev y producción) ───────────────────
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin147258';
-    if (loginId.toLowerCase() === 'admin' && password === adminPassword) {
-      const mockToken = btoa(JSON.stringify({ userId: 0, role: 'admin', alias: 'admin', exp: Date.now() + 86400000 }));
-      const slug = process.env.NEXT_PUBLIC_CLIENT_SLUG || 'kaizenholding';
-      document.cookie = `${slug}_jwt=${mockToken}; path=/; max-age=86400; SameSite=Lax`;
-      router.push('/admin/p2p');
-      setLoading(false);
-      return;
+    // ── ADMIN BYPASS (validación server-side) ──────────────────────────
+    if (loginId.toLowerCase() === 'admin') {
+      try {
+        const res = await fetch('/api/auth/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ loginId, password }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const slug = process.env.NEXT_PUBLIC_CLIENT_SLUG || 'kaizenholding';
+          document.cookie = `${slug}_jwt=${data.accessToken}; path=/; max-age=86400; SameSite=Lax`;
+          router.push('/admin/p2p');
+          setLoading(false);
+          return;
+        } else {
+          setErrorMsg('Contraseña de administrador incorrecta.');
+          setLoading(false);
+          return;
+        }
+      } catch {
+        setErrorMsg('Error de conexión con el servidor.');
+        setLoading(false);
+        return;
+      }
     }
     // ────────────────────────────────────────────────────────────────
 
